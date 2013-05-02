@@ -8,7 +8,7 @@ import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
 
 public class PageRank {
-    private static final int NUM_OF_REDUCER_ITERATIONS = 100;
+    private static final int NUM_OF_REDUCER_ITERATIONS = 500;
     private static final double DAMPING_FACTOR = 0.85;
     private static final double TERMINATION_RESIDUAL = 0.001;
     private static final int NUM_NODES = 685230;
@@ -237,6 +237,7 @@ public class PageRank {
             System.out.println(String.format("Pass %d: residual = %f", passCount, residualSum));
             System.out.println(String.format("Number of nodes processed: %d", counters.getCounter(COUNTERS.PROCESSED_NODES)));
             passCount += 1;
+            if (passCount > 5) break;
         } while (residualSum > (NUM_NODES * TERMINATION_RESIDUAL));
 
         System.out.println("Total number of MapReduce passes: " + passCount);

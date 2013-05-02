@@ -7,47 +7,22 @@ import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
 
-public class PageRankSimplified {
+public class PageRankRandomBlocking {
     private static final int NUM_OF_REDUCER_ITERATIONS = 500;
     private static final double DAMPING_FACTOR = 0.85;
     private static final double TERMINATION_RESIDUAL = 0.001;
     private static final int NUM_NODES = 685230;
     private static final int RESIDUAL_OFFSET = 1000000000;
 
-
     public static enum COUNTERS {
         PROCESSED_NODES,
         RESIDUAL_SUM
     };
 
-    private static long blockIDofNode(long nodeID) {
+    private static int getBlockNum(int nodeID) {
+        if (nodeID < 0) return -1;
         Long n = new Long(nodeID);
         return n.hashCode()%68;
-    }
-
-    private static final int[] BLOCK_BOUNDS = {10328, 20373, 30629, 40645, 50462, 60841, 70591, 80118, 90497, 100501,
-                               110567, 120945, 130999, 140574, 150953, 161332, 171154, 181514, 191625, 202004,
-                               212383, 222762, 232593, 242878, 252938, 263149, 273210, 283473, 293255, 303043,
-                               313370, 323522, 333883, 343663, 353645, 363929, 374236, 384554, 394929, 404712,
-                               414617, 424747, 434707, 444489, 454285, 464398, 474196, 484050, 493968, 503752,
-                               514131, 524510, 534709, 545088, 555467, 565846, 576225, 586604, 596585, 606367,
-                               616148, 626448, 636240, 646022, 655804, 665666, 675448, 685230
-                                              };
-
-    private static int getBlockNum(int nodeNum) {
-        int blockNum = nodeNum/10000;
-
-        if (nodeNum < 0) {
-            return -1;
-        } else if (nodeNum < 10328) {
-            return 0;
-        } else {
-            if(nodeNum < BLOCK_BOUNDS[blockNum-1]) {
-                return (blockNum-1);
-            } else {
-                return blockNum;
-            }
-        }
     }
 
     public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, IntWritable, Text> {
@@ -166,14 +141,6 @@ public class PageRankSimplified {
                 reporter.incrCounter(COUNTERS.PROCESSED_NODES, 1);
                 reporter.incrCounter(COUNTERS.RESIDUAL_SUM, (int)((Math.abs(originalPr.get(v) - pr.get(v)) / pr.get(v)) * RESIDUAL_OFFSET));
             }
-
-            int highestNode = BLOCK_BOUNDS[key.get()] - 1;
-            Double pageRank = pr.get(highestNode);
-            if (pageRank == null) {
-                System.out.println(String.format("Pagerank of node %d of block %d: null", highestNode, blockNum));
-            } else {
-                System.out.println(String.format("Pagerank of node %d of block %d: %.20f", highestNode, blockNum, pageRank));
-            }
         }
     }
 
@@ -182,7 +149,7 @@ public class PageRankSimplified {
         int passCount = 0;
         System.out.println("Starting...");
         do {
-            JobConf conf = new JobConf(PageRankSimplified.class);
+            JobConf conf = new JobConf(PageRankRandomBlocking.class);
             conf.setJobName("pagerank");
 
             conf.setOutputKeyClass(IntWritable.class);
