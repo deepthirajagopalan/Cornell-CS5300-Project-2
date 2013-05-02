@@ -7,13 +7,12 @@ import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
 
-public class PageRank {
+public class PageRankSimplified {
     private static final int NUM_OF_REDUCER_ITERATIONS = 100;
     private static final double DAMPING_FACTOR = 0.85;
     private static final double TERMINATION_RESIDUAL = 0.001;
     private static final int NUM_NODES = 685230;
     private static final int RESIDUAL_OFFSET = 1000000000;
-    private static final int NUM_OF_BLOCKS = 68;
 
 
     public static enum COUNTERS {
@@ -53,12 +52,6 @@ public class PageRank {
         public void map(LongWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
             String[] words = value.toString().split("\\s+");
 
-            if (words.length == 2) {
-                for (int i = 0; i < NUM_OF_BLOCKS; i++) {
-                    output.collect(new IntWritable(i), value);
-                }
-            }
-
             if (words.length == 4) {
                 int blockNumOfStart = getBlockNum(Integer.valueOf(words[0]));
                 int blockNumOfEnd = getBlockNum(Integer.valueOf(words[1]));
@@ -87,8 +80,6 @@ public class PageRank {
         public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
             int blockNum = key.get();
             Set<Integer> b = new HashSet<Integer>();
-            Set<Integer> nodesWithNoOutEdges = new HashSet<Integer>();
-            Set<Integer> outsideNodesWithNoOutEdges = new HashSet<Integer>();
             ArrayList<Edge> edges = new ArrayList<Edge>();
             java.util.Map<Integer, Double> pr = new HashMap<Integer, Double>();
             java.util.Map<Integer, Integer> deg = new HashMap<Integer, Integer>();
@@ -98,7 +89,7 @@ public class PageRank {
             while (values.hasNext()) {
                 String line = values.next().toString();
                 String[] words = line.split("\\s+");
-                if (words.length == 4) {
+                try {
                     Integer startNode = Integer.valueOf(words[0]);
                     Integer endNode = Integer.valueOf(words[1]);
                     Double pageRank = Double.valueOf(words[2]);
@@ -127,25 +118,9 @@ public class PageRank {
                         newList.add(startNode);
                         bc.put(endNode, newList);
                     }
-                } else if (words.length == 2) {
-                    Integer n = Integer.valueOf(words[0]);
-                    if (getBlockNum(n) == blockNum) {
-                        nodesWithNoOutEdges.add(n);
-                    } else {
-                        outsideNodesWithNoOutEdges.add(n);
-                    }
-                    
-                    pr.put(n, Double.valueOf(words[1]));
-                    deg.put(n, new Integer(NUM_NODES));
+                } catch (java.lang.NumberFormatException e) {
+                    // Just ignore the exception; it's expected.
                 }
-            }
-
-            for (Integer v : be.keySet()) {
-                be.get(v).addAll(nodesWithNoOutEdges);
-            }
-
-            for (Integer v : bc.keySet()) {
-                bc.get(v).addAll(outsideNodesWithNoOutEdges);
             }
 
             java.util.Map<Integer, Double> originalPr = new HashMap<Integer, Double>(pr);
@@ -182,16 +157,10 @@ public class PageRank {
                 for (Integer u : be.get(v)) {
                     Double pageRank = pr.get(u);
                     Integer degree = deg.get(u);
-                    if (nodesWithNoOutEdges.contains(u) || outsideNodesWithNoOutEdges.contains(u)) {
-                        if (getBlockNum(u) == blockNum) {
-                            output.collect(null, new Text(String.format("%s   %s", u.toString(), pageRank)));
-                        }
-                    } else {
-                        output.collect(null, new Text(String.format(
+                    output.collect(null, new Text(String.format(
                                                       "%s   %s   %s   %s",
                                                       u.toString(), v.toString(),
                                                       pageRank.toString(), degree.toString())));
-                    }
                 }
             }
 
@@ -216,7 +185,7 @@ public class PageRank {
         int passCount = 0;
         System.out.println("Starting...");
         do {
-            JobConf conf = new JobConf(PageRank.class);
+            JobConf conf = new JobConf(PageRankSimplified.class);
             conf.setJobName("pagerank");
 
             conf.setOutputKeyClass(IntWritable.class);
