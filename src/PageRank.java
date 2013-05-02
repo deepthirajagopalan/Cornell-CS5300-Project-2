@@ -1,5 +1,3 @@
-package cs5300;
-
 import java.io.IOException;
 import java.util.*;
 
@@ -19,13 +17,13 @@ public class PageRank {
 
     public static enum COUNTERS {
 
-		RESIDUAL_SUM
-	};
-	
-	private static long blockIDofNode(long nodeID) { 
-		Long n = new Long(nodeID);
-		return n.hashCode()%68; 
-	} 
+        RESIDUAL_SUM
+    };
+
+    private static long blockIDofNode(long nodeID) {
+        Long n = new Long(nodeID);
+        return n.hashCode()%68;
+    }
 
 
     // private static int getBlockNum(int nodeNum) {
@@ -74,14 +72,11 @@ public class PageRank {
     private static int getBlockNum(int nodeNum) {
         if (nodeNum < 2) {
             return 0;
-        }
-        else if (nodeNum < 4) {
+        } else if (nodeNum < 4) {
             return 1;
-        }
-        else if (nodeNum < 6) {
+        } else if (nodeNum < 6) {
             return 2;
-        }
-        else {
+        } else {
             return 3;
         }
     }
@@ -90,8 +85,15 @@ public class PageRank {
         public void map(LongWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
             String[] words = value.toString().split("\\s+");
 
-            output.collect(new IntWritable(getBlockNum(Integer.valueOf(words[0]))), value);
-            output.collect(new IntWritable(getBlockNum(Integer.valueOf(words[1]))), value);
+            int blockNumOfStart = getBlockNum(Integer.valueOf(words[0]));
+            int blockNumOfEnd = getBlockNum(Integer.valueOf(words[1]));
+
+            if (blockNumOfStart == blockNumOfEnd) {
+                output.collect(new IntWritable(blockNumOfStart), value);
+            } else {
+                output.collect(new IntWritable(blockNumOfStart), value);
+                output.collect(new IntWritable(blockNumOfEnd), value);
+            }
         }
     }
 
@@ -107,7 +109,7 @@ public class PageRank {
 
     public static class Reduce extends MapReduceBase implements Reducer<IntWritable, Text,  IntWritable, Text> {
         public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
-            ArrayList<Integer> b = new ArrayList<Integer>();
+            Set<Integer> b = new HashSet<Integer>();
             ArrayList<Edge> edges = new ArrayList<Edge>();
             java.util.Map<Integer, Double> pr = new HashMap<Integer, Double>();
             java.util.Map<Integer, Integer> deg = new HashMap<Integer, Integer>();
@@ -128,63 +130,98 @@ public class PageRank {
                 if (getBlockNum(startNode) == key.get()) {
                     b.add(startNode);
                     List<Integer> newList;
-                    if (be.containsKey(startNode)) {
-                        newList = be.get(startNode);
+                    if (be.containsKey(endNode)) {
+                        newList = be.get(endNode);
                     } else {
                         newList = new ArrayList<Integer>();
                     }
-                    newList.add(endNode);
-                    be.put(startNode, newList);
+                    newList.add(startNode);
+                    be.put(endNode, newList);
                 } else {
                     List<Integer> newList;
-                    if (bc.containsKey(startNode)) {
-                        newList = bc.get(startNode);
+                    if (bc.containsKey(endNode)) {
+                        newList = bc.get(endNode);
                     } else {
                         newList = new ArrayList<Integer>();
                     }
-                    newList.add(endNode);
-                    bc.put(startNode, newList);
+                    newList.add(startNode);
+                    bc.put(endNode, newList);
                 }
             }
+
+            System.out.println("BE: " + be.toString());
+            System.out.println("BC: " + bc.toString());
 
             java.util.Map<Integer, Double> originalPr = new HashMap<Integer, Double>(pr);
 
             for (int i = 0; i < NUM_OF_REDUCER_ITERATIONS; i++) {
                 java.util.Map<Integer, Double> npr = new HashMap<Integer, Double>();
-                for (int j = 0; j < b.size(); j++) {
-                    npr.put(b.get(j), 0.0);
+                for (Integer v : b) {
+                    npr.put(v, 0.0);
                 }
-                for (int p = 0; p < edges.size(); p++) {
-                    Edge edge = edges.get(p);
-                    Integer startNode = edge.startNode;
-                    Integer endNode = edge.endNode;
-                    npr.put(endNode, npr.get(endNode) + pr.get(startNode) / deg.get(startNode));
+
+                for (Integer v : b) {
+                    List<Integer> startNodes = be.get(v);
+                    if (startNodes != null) {
+                        for (Integer u : startNodes) {
+                            npr.put(v, npr.get(v) + pr.get(u) / deg.get(u));
+                        }
+                    }
+
+                    startNodes = bc.get(v);
+                    if (startNodes != null) {
+                        for (Integer u : startNodes) {
+                            npr.put(v, npr.get(v) + pr.get(u) / deg.get(u));
+                        }
+                    }
+                    npr.put(v, npr.get(v) * DAMPING_FACTOR + (1.0 - DAMPING_FACTOR) / NUM_NODES);
                 }
-                for (int j = 0; j < b.size(); j++) {
-                    Integer v = b.get(j);
-                    npr.put(v, npr.get(v) * DAMPING_FACTOR + (1 - DAMPING_FACTOR) / NUM_NODES);
+
+                // for (int p = 0; p < edges.size(); p++) {
+                //     Edge edge = edges.get(p);
+                //     Integer startNode = edge.startNode;
+                //     Integer endNode = edge.endNode;
+                //     if (b.contains(endNode)) {
+                //         if (npr.containsKey(endNode)) {
+                //             npr.put(endNode, npr.get(endNode) + pr.get(startNode) / deg.get(startNode));
+                //         } else {
+                //             npr.put(endNode, pr.get(startNode) / deg.get(startNode));
+                //         }
+                //     } else {
+                //         continue;
+                //     }
+                // }
+                for (Integer v : b) {
                     pr.put(v, npr.get(v));
                 }
             }
 
-            for (int i = 0; i < b.size(); i++) {
-                Integer v = b.get(i);
-                List<Integer> endNodes = be.get(v);
-                Double pageRank = pr.get(v);
-                Integer degree = deg.get(v);
-                for (int j = 0; j < endNodes.size(); j++) {
-                    Integer endNode = endNodes.get(j);
+            for (Integer v : be.keySet()) {
+                for (Integer u : be.get(v)) {
+                    Double pageRank = pr.get(u);
+                    Integer degree = deg.get(u);
                     output.collect(null, new Text(String.format(
                                                       "%s   %s   %s   %s",
-                                                      v.toString(), endNode.toString(),
+                                                      u.toString(), v.toString(),
                                                       pageRank.toString(), degree.toString())));
                 }
             }
 
+            // for (Integer v : b) {
+            //     List<Integer> startNodes = be.get(v);
+            //     for (Integer u : startNodes) {
+            //         Double pageRank = pr.get(u);
+            //         Integer degree = deg.get(u);
+            //         output.collect(null, new Text(String.format(
+            //                                           "%s   %s   %s   %s",
+            //                                           u.toString(), v.toString(),
+            //                                           pageRank.toString(), degree.toString())));
+            //     }
+            // }
+
             Double residualSum = new Double(0);
-            for (int i = 0; i < b.size(); i++) {
-                Integer v = b.get(i);
-                residualSum += Math.abs(originalPr.get(i) - pr.get(i)) / pr.get(i);
+            for (Integer v : b) {
+                residualSum += Math.abs(originalPr.get(v) - pr.get(v)) / pr.get(v);
             }
 
             reporter.incrCounter(COUNTERS.RESIDUAL_SUM, (int)(residualSum * RESIDUAL_OFFSET));
@@ -192,8 +229,8 @@ public class PageRank {
     }
 
     public static void main(String[] args) throws Exception {
-    	// 
-        float residualSum;
+        //
+        double residualSum;
         int passCount = 0;
         do {
             JobConf conf = new JobConf(PageRank.class);
@@ -213,10 +250,10 @@ public class PageRank {
 
             RunningJob job = JobClient.runJob(conf);
             Counters counters = job.getCounters();
-            residualSum = ((float)counters.getCounter(COUNTERS.RESIDUAL_SUM))/RESIDUAL_OFFSET;
+            residualSum = ((double)counters.getCounter(COUNTERS.RESIDUAL_SUM))/RESIDUAL_OFFSET;
             System.out.println(String.format("Pass %d: residual = %f", passCount, residualSum));
             passCount += 1;
-        } while (residualSum < 0.001);
+        } while (residualSum > (NUM_NODES * 0.001));
 
         System.out.println("Total number of MapReduce passes: " + passCount);
     }

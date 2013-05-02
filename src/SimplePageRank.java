@@ -1,5 +1,3 @@
-package cs5300;
-
 import java.io.IOException;
 import java.util.*;
 
