@@ -16,7 +16,6 @@ public class PageRank {
 
 
     public static enum COUNTERS {
-
         RESIDUAL_SUM
     };
 
@@ -24,50 +23,6 @@ public class PageRank {
         Long n = new Long(nodeID);
         return n.hashCode()%68;
     }
-
-
-    // private static int getBlockNum(int nodeNum) {
-    //     if(nodeNum >= 685230) {
-    //         return 68;
-    //     }
-
-    //     int[] blockBounds = {10328, 20373, 30629, 40645, 50462, 60841, 70591, 80118, 90497, 100501,
-    //                          110567, 120945, 130999, 140574, 150953, 161332, 171154, 181514, 191625, 202004,
-    //                          212383, 222762, 232593, 242878, 252938, 263149, 273210, 283473, 293255, 303043,
-    //                          313370, 323522, 333883, 343663, 353645, 363929, 374236, 384554, 394929, 404712,
-    //                          414617, 424747, 434707, 444489, 454285, 464398, 474196, 484050, 493968, 503752,
-    //                          514131, 524510, 534709, 545088, 555467, 565846, 576225, 586604, 596585, 606367,
-    //                          616148, 626448, 636240, 646022, 655804, 665666, 675448, 685230
-    //                         };
-
-    //     int prevCounter = 68;
-    //     int counter = 0;
-    //     Double diff;
-    //     while(true) {
-
-    //         if(nodeNum == blockBounds[counter]) {
-    //             return counter + 1;
-    //         } else if (nodeNum < blockBounds[counter]) {
-    //             diff = new Double(Math.abs((counter-prevCounter)/2));
-    //             if(diff < 1) {
-    //                 return counter;
-    //             }
-    //             prevCounter = counter;
-    //             counter = counter/2;
-
-    //         } else {
-    //             diff = new Double(Math.abs((counter-prevCounter)/2));
-    //             if(diff < 1) {
-    //                 return counter + 1;
-    //             }
-    //             prevCounter = counter;
-    //             counter = counter + diff.intValue();	// intValue casts down
-    //         }
-
-
-    //     }
-    // }
-
 
     private static int getBlockNum(int nodeNum) {
         if (nodeNum < 2) {
@@ -177,20 +132,6 @@ public class PageRank {
                     npr.put(v, npr.get(v) * DAMPING_FACTOR + (1.0 - DAMPING_FACTOR) / NUM_NODES);
                 }
 
-                // for (int p = 0; p < edges.size(); p++) {
-                //     Edge edge = edges.get(p);
-                //     Integer startNode = edge.startNode;
-                //     Integer endNode = edge.endNode;
-                //     if (b.contains(endNode)) {
-                //         if (npr.containsKey(endNode)) {
-                //             npr.put(endNode, npr.get(endNode) + pr.get(startNode) / deg.get(startNode));
-                //         } else {
-                //             npr.put(endNode, pr.get(startNode) / deg.get(startNode));
-                //         }
-                //     } else {
-                //         continue;
-                //     }
-                // }
                 for (Integer v : b) {
                     pr.put(v, npr.get(v));
                 }
@@ -207,18 +148,6 @@ public class PageRank {
                 }
             }
 
-            // for (Integer v : b) {
-            //     List<Integer> startNodes = be.get(v);
-            //     for (Integer u : startNodes) {
-            //         Double pageRank = pr.get(u);
-            //         Integer degree = deg.get(u);
-            //         output.collect(null, new Text(String.format(
-            //                                           "%s   %s   %s   %s",
-            //                                           u.toString(), v.toString(),
-            //                                           pageRank.toString(), degree.toString())));
-            //     }
-            // }
-
             Double residualSum = new Double(0);
             for (Integer v : b) {
                 residualSum += Math.abs(originalPr.get(v) - pr.get(v)) / pr.get(v);
@@ -229,7 +158,6 @@ public class PageRank {
     }
 
     public static void main(String[] args) throws Exception {
-        //
         double residualSum;
         int passCount = 0;
         do {
@@ -253,7 +181,7 @@ public class PageRank {
             residualSum = ((double)counters.getCounter(COUNTERS.RESIDUAL_SUM))/RESIDUAL_OFFSET;
             System.out.println(String.format("Pass %d: residual = %f", passCount, residualSum));
             passCount += 1;
-        } while (residualSum > (NUM_NODES * 0.001));
+        } while (residualSum > (NUM_NODES * TERMINATION_RESIDUAL));
 
         System.out.println("Total number of MapReduce passes: " + passCount);
     }
