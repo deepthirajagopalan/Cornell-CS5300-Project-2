@@ -206,6 +206,7 @@ public class PageRank {
             residualSum = ((double)counters.getCounter(COUNTERS.RESIDUAL_SUM))/RESIDUAL_OFFSET;
             System.out.println(String.format("Pass %d: residual = %f", passCount, residualSum));
             passCount += 1;
+            if (passCount > 5) break;
         } while (residualSum > (NUM_NODES * TERMINATION_RESIDUAL));
 
         System.out.println("Total number of MapReduce passes: " + passCount);
