@@ -8,10 +8,10 @@ import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
 
 public class PageRank {
-    private static final int NUM_OF_REDUCER_ITERATIONS = 10;
+    private static final int NUM_OF_REDUCER_ITERATIONS = 100;
     private static final double DAMPING_FACTOR = 0.85;
     private static final double TERMINATION_RESIDUAL = 0.001;
-    private static final int NUM_NODES = 685229;
+    private static final int NUM_NODES = 685230;
     private static final int RESIDUAL_OFFSET = 1000000000;
 
 
@@ -103,9 +103,6 @@ public class PageRank {
                     bc.put(endNode, newList);
                 }
             }
-
-            System.out.println("BE: " + be.toString());
-            System.out.println("BC: " + bc.toString());
 
             java.util.Map<Integer, Double> originalPr = new HashMap<Integer, Double>(pr);
 
